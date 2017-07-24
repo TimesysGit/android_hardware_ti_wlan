@@ -59,6 +59,21 @@ static int wpa_driver_toggle_btcoex_state(char state)
 	return ret;
 }
 
+static int wpa_driver_set_bands_enabled(char val)
+{
+	int ret;
+	int fd = open("/sys/class/ieee80211/phy0/device/bands_enabled", O_RDWR, 0);
+	if (fd == -1)
+		return -1;
+
+	ret = write(fd, &val, sizeof(val));
+	close(fd);
+
+	wpa_printf(MSG_DEBUG, "%s:  set bands allowed to '%c' result = %d", __func__,
+		   val, ret);
+	return ret;
+}
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -92,6 +107,16 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		if (!ret)
 			ret = os_snprintf(buf, buf_len,
 					  "Macaddr = " MACSTR "\n", MAC2STR(macaddr));
+    } else if (os_strncasecmp(cmd, "SETBAND ", 8) == 0) {
+		int val = atoi(cmd + 8);
+		if (val < 0 || val > 2) {
+			wpa_printf(MSG_DEBUG, "invalid SETBAND band: %d", val);
+			ret = -1;
+		}
+		else {
+			if (wpa_driver_set_bands_enabled('0' + val) < 0)
+				ret = -1;
+		}
 	} else {
 		wpa_printf(MSG_INFO, "%s: Unsupported command %s", __func__, cmd);
 	}
